@@ -52,7 +52,7 @@ def main():
     # creating the arm_set and the optimal parameter
     arm_set = create_arm_set(params)
     params["arm_set"] = [arm.tolist() for arm in arm_set]
-    params["theta_star"] = np.array([np.random.random() for i in range(params['dimension'])])
+    params["theta_star"] = np.array([np.random.random()*2 - 1 for i in range(params['dimension'])])
     params["theta_star"] = params["theta_star"] / np.linalg.norm(params["theta_star"])
     params["theta_star"] = params["theta_star"].tolist()
     

@@ -13,9 +13,10 @@ class LinearBanditEnv():
         self.horizon = params["horizon"]
 
         self.true_oracle = TrueLinearOracle(self.arm_set , params["theta_star"])
-        
+        print("The best arm is {}".format(self.true_oracle.best_arm))
         self.estimate_theta = np.zeros(self.dimension)
-        self.estimate_best_arm , self.estimate_best_val = AdditiveLinearOracle(self.estimate_theta , self.arm_set , 1/self.horizon)
+        self.estimate_best_arm = self.arm_set[np.random.choice(len(self.arm_set))]
+        self.estimate_best_val = np.dot(self.estimate_best_arm , self.estimate_theta)
         
         self.ctr = 0
         self.batch_num = 1
@@ -57,7 +58,7 @@ class LinearBanditEnv():
             self.prev_batch_length = self.current_batch_length
             self.current_batch_length = self.get_batch_lengths()
             self.batch_ctr = 0
-
+            print("The new estimated best arm is {}".format(self.estimate_best_arm))
         return
     
     def play_batch(self):
