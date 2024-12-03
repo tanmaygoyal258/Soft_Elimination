@@ -5,6 +5,7 @@ import json
 import os
 from LinearEnv import LinearBanditEnv
 import matplotlib.pyplot as plt
+from LogisticEnv import LogisticBanditEnv
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -13,6 +14,8 @@ def parse_args():
     parser.add_argument('--dimension' , type = int , default = 5 , help = "dimension ")
     parser.add_argument('--number_arms' , type = int , default = 100 , help = 'number of arms')
     parser.add_argument('--seed', type = int, default = 123, help = 'random seed')
+    parser.add_argument('--env', type = str , default = "Linear")
+    parser.add_argument('--desired_norm', type = int, default = 1, help = 'desired norm for theta and arm')
     return parser.parse_args()
 
 def create_arm_set(params):
@@ -22,7 +25,7 @@ def create_arm_set(params):
     arms = []
     for _ in range(params["number_arms"] - params["dimension"]):
         arm = np.array([np.random.random()*2-1 for _ in range(params["dimension"])])
-        arm = arm / np.linalg.norm(arm)
+        arm = arm / (np.linalg.norm(arm) / params["desired_norm"])
         arms.append(arm)
 
     spanning_set = np.identity(params["dimension"])
@@ -45,6 +48,8 @@ def main():
     params['dimension'] = args.dimension
     params['number_arms'] = args.number_arms
     params['seed'] = args.seed
+    params["env"] = args.env
+    params["desired_norm"] = args.desired_norm
 
     # setting the seed
     np.random.seed(params['seed'])
@@ -53,21 +58,27 @@ def main():
     arm_set = create_arm_set(params)
     params["arm_set"] = [arm.tolist() for arm in arm_set]
     params["theta_star"] = np.array([np.random.random()*2 - 1 for i in range(params['dimension'])])
-    params["theta_star"] = params["theta_star"] / np.linalg.norm(params["theta_star"])
+    params["theta_star"] = params["theta_star"] / (np.linalg.norm(params["theta_star"]) / params["desired_norm"])
     params["theta_star"] = params["theta_star"].tolist()
     
+    # create the instance
+    if "linear" in params["env"].lower():
+        env = LinearBanditEnv(params)
+    else:
+        env = LogisticBanditEnv(params)
+        print("The Kappa for this instance is {}".format(env.get_kappa()))
+        params["kappa"] = env.get_kappa()
+
     # Store config as a JSON file
     now = datetime.now()
     timestamp = now.strftime("%d-%m_%H-%M")
     print(timestamp)
-    path = "Data_Files_Linear/"+timestamp
+    path = "Data_Files_{}/".format(params["env"]) + timestamp
     if not os.path.exists(path):
         os.makedirs(path)
-    with open("Data_Files_Linear/"+timestamp+"/config.json", "w") as outfile:
+    with open("Data_Files_{}/".format(params["env"]) + timestamp+"/config.json", "w") as outfile:
         json.dump(params, outfile) 
 
-    # create the instance
-    env = LinearBanditEnv(params)
     env.play()
     regret , reward = env.get_arrays()
     flattened_regret = []
@@ -79,6 +90,8 @@ def main():
         for r in batch:
             flattened_reward.append(r)
     
+    np.save("Data_Files_{}/".format(params["env"]) + timestamp + "regret_array" , flattened_regret)
+
     cumulative_regret = np.cumsum(flattened_regret)
     cumulative_reward = np.cumsum(flattened_reward)
     
@@ -98,7 +111,7 @@ def main():
     plt.ylabel("Expected Reward")
     plt.grid(True)
     
-    plt.savefig("Data_Files_Linear/" + timestamp + "/graphs.png")
+    plt.savefig("Data_Files_{}/".format(params["env"]) + timestamp + "graph.png")
     
 
 if __name__ == "__main__":
