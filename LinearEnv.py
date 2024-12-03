@@ -1,5 +1,5 @@
 import numpy as np
-from LinearOracle import TrueLinearOracle , ApproximateLinearOracle
+from LinearOracle import TrueLinearOracle , AdditiveLinearOracle
 from tqdm import tqdm
 from LinearWeightedSpanner import LWS
 
@@ -15,11 +15,11 @@ class LinearBanditEnv():
         self.true_oracle = TrueLinearOracle(self.arm_set , params["theta_star"])
         
         self.estimate_theta = np.zeros(self.dimension)
-        self.estimate_best_arm , self.estimate_best_val = ApproximateLinearOracle(self.estimate_theta , self.arm_set , 1/self.horizon)
+        self.estimate_best_arm , self.estimate_best_val = AdditiveLinearOracle(self.estimate_theta , self.arm_set , 1/self.horizon)
         
-        self.ctr = 1
+        self.ctr = 0
         self.batch_num = 1
-        self.batch_ctr = 1
+        self.batch_ctr = 0
         self.total_batches = np.ceil(np.log(np.log(self.horizon))) + 1
         self.prev_batch_length = 1
         self.current_batch_length = self.get_batch_lengths()
@@ -50,13 +50,13 @@ class LinearBanditEnv():
             if v_matrix is None and s_matrix is None:
                 return
             
-            self.theta_estimate = np.linalg.inv(v_matrix) @ s_matrix
-            self.estimate_best_arm , self.estimate_best_val = ApproximateLinearOracle(self.estimate_theta , self.arm_set , 1/self.horizon)
+            self.estimate_theta = np.linalg.inv(v_matrix) @ s_matrix
+            self.estimate_best_arm , self.estimate_best_val = AdditiveLinearOracle(self.estimate_theta , self.arm_set , 1/self.horizon)
             
             self.batch_num += 1
             self.prev_batch_length = self.current_batch_length
             self.current_batch_length = self.get_batch_lengths()
-            self.batch_ctr = 1
+            self.batch_ctr = 0
 
         return
     
@@ -64,7 +64,9 @@ class LinearBanditEnv():
 
         eta = np.sqrt(self.prev_batch_length) / (8 * self.gamma)
         
+        print("Finding Barycentric Spanner")
         barycentric_spanner = LWS(self.params , self.arm_set , eta , self.estimate_best_arm , self.estimate_theta)
+        print("Barycentric spanner found")
 
         v_matrix = np.identity(self.dimension)
         s_matrix = np.zeros(self.dimension)
@@ -73,7 +75,7 @@ class LinearBanditEnv():
         rewards = []
 
         for a in barycentric_spanner:
-            # TODO: check if A belongs to ball of radius 1/T
+            # TODO: check if a belongs to ball of radius 1/T
 
             gap = self.estimate_best_val - np.dot(a , self.estimate_theta)
             pi = 1/self.dimension
@@ -89,11 +91,12 @@ class LinearBanditEnv():
                 regrets.append(expected_reg)
                 rewards.append(expected_rew)
 
-                if self.batch_ctr > self.current_batch_length:
+                if self.ctr >= self.horizon:
+                    return regrets , rewards , None , None
+
+                if self.batch_ctr >= self.current_batch_length:
                     return regrets , rewards , v_matrix , s_matrix
 
-                if self.ctr > self.horizon:
-                    return regrets , rewards , None , None
 
         if self.batch_ctr <= self.current_batch_length:
             while True:
@@ -106,11 +109,12 @@ class LinearBanditEnv():
                 regrets.append(expected_reg)
                 rewards.append(expected_rew)
 
-                if self.batch_ctr > self.current_batch_length:
+                if self.ctr >= self.horizon:
+                    return regrets , rewards , None , None
+
+                if self.batch_ctr >= self.current_batch_length:
                     return regrets , rewards , v_matrix , s_matrix
 
-                if self.ctr > self.horizon:
-                    return regrets , rewards , None , None
 
     def get_arrays(self):
         return self.expected_regret , self.expected_reward

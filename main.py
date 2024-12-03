@@ -21,13 +21,18 @@ def create_arm_set(params):
     '''
     arms = []
     for _ in range(params["number_arms"] - params["dimension"]):
-        arm = np.array([np.random.random() for _ in range(params["dimension"])])
+        arm = np.array([np.random.random()*2-1 for _ in range(params["dimension"])])
         arm = arm / np.linalg.norm(arm)
         arms.append(arm)
 
     spanning_set = np.identity(params["dimension"])
     for arm in spanning_set:
         arms.append(arm)
+    # spanning_set = [[2,1,3] , [4,2,-1] , [1,1,1]]
+    # for arm in spanning_set:
+    #     arms.append(arm / np.linalg.norm(arm))
+
+    
 
     return arms
 
